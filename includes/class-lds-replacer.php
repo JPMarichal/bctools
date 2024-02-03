@@ -20,7 +20,20 @@ class LDS_Replacer {
      * @return string Contenido con las referencias reemplazadas por enlaces.
      */
     public function replace_scripture_references($content) {
-        $pattern = '/\b(1 Nefi|2 Nefi|Jacob|Enós|Jarom|Omni|Mosíah|Alma|Helamán|3 Nefi|4 Nefi|Mormón|Éter|Moroni|Génesis|Éxodo|Levítico|Números|Deuteronomio|Josué|Jueces|Rut|1 Samuel|2 Samuel|1 Reyes|2 Reyes|1 Crónicas|2 Crónicas|Esdras|Nehemías|Ester|Job|Salmos|Proverbios|Eclesiastés|Cantares|Isaías|Jeremías|Lamentaciones|Ezequiel|Daniel|Oseas|Joel|Amós|Abdías|Jonás|Miqueas|Nahúm|Habacuc|Sofonías|Hageo|Zacarías|Malaquías|Mateo|Marcos|Lucas|Juan|Hechos|Romanos|1 Corintios|2 Corintios|Gálatas|Efesios|Filipenses|Colosenses|1 Tesalonicenses|2 Tesalonicenses|1 Timoteo|2 Timoteo|Tito|Filemón|Hebreos|Santiago|1 Pedro|2 Pedro|1 Juan|2 Juan|3 Juan|Judas|Apocalipsis|Moisés|Abraham|José Smith—Mateo|José Smith—Historia|Artículos de Fe|Doctrina y Convenios|Declaración Oficial)\s\d+(?::\d+(?:–\d+)?(?:,\d+(?:–\d+)?)*)?/iu';
+        // Cargar los nombres de los libros desde el archivo
+        $books = file(plugin_dir_path(__FILE__) . '../data/scripture_books.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($books === false) {
+            // Si no se puede cargar el archivo, retorna el contenido sin modificaciones
+            return $content;
+        }
+        
+        // Escapar los nombres de los libros para su uso en la expresión regular
+        $escapedBooks = array_map(function($book) {
+            return preg_quote($book, '/');
+        }, $books);
+    
+        // Construir el patrón usando los nombres de los libros cargados
+        $pattern = '/\b(' . implode('|', $escapedBooks) . ')\s\d+(?::\d+(?:–\d+)?(?:,\d+(?:–\d+)?)*)?/iu';
     
         return preg_replace_callback($pattern, function($matches) {
             // Normalizar el nombre del libro para eliminar acentos y ajustar para "Éxodo" y "Éter"
@@ -28,8 +41,8 @@ class LDS_Replacer {
             $book = $normalizedBookName; // El nombre del libro normalizado
             $chapter = isset($matches[2]) ? $matches[2] : ''; // Asegurar que el capítulo esté definido
     
-            // Corrección clave: Asegurarse de incluir el número de capítulo en la URL
-            $bookAndChapter = ($book . ' ' . $chapter);
+            // Corrección clave: Incluir el número de capítulo en la URL
+            $bookAndChapter = $book . ' ' . $chapter;
     
             // Capturar correctamente el primer versículo y rangos, si están presentes
             $verseMatch = '';
@@ -44,8 +57,7 @@ class LDS_Replacer {
     
             return "<a href='$url' class='chapterLink' target='_chapter'>$displayText</a>";
         }, $content);
-    }
-    
+    }   
     
     private function normalize_book_name($name) {
         $name = str_replace(['Éxodo', 'Éter'], ['Exodo', 'Eter'], $name);
