@@ -25,25 +25,27 @@ class LDS_Replacer {
         return preg_replace_callback($pattern, function($matches) {
             // Normalizar el nombre del libro para eliminar acentos y ajustar para "Éxodo" y "Éter"
             $normalizedBookName = $this->normalize_book_name($matches[1]);
-            // Asegurarse de que cada parte de la referencia esté correctamente capturada y utilizada
-            $book = $normalizedBookName;
-            $chapter = isset($matches[2]) ? $matches[2] : '';
-            $verse = '';
+            $book = $normalizedBookName; // El nombre del libro normalizado
+            $chapter = isset($matches[2]) ? $matches[2] : ''; // Asegurar que el capítulo esté definido
     
-            // Intentar capturar el primer versículo y su posible rango, si están presentes
-            if (preg_match('/:\d+(?:–\d+)?/', $matches[0], $verseMatches)) {
-                $verse = str_replace(':', '#', $verseMatches[0]);
+            // Corrección clave: Asegurarse de incluir el número de capítulo en la URL
+            $bookAndChapter = ($book . ' ' . $chapter);
+    
+            // Capturar correctamente el primer versículo y rangos, si están presentes
+            $verseMatch = '';
+            if (preg_match('/\d+:\d+(?:–\d+)?/', $matches[0], $verseMatches)) {
+                $verseMatch = str_replace(':', '#', $verseMatches[0]);
             }
     
-            $bookAndChapter = trim($book . ' ' . $chapter);
-            $displayText = $matches[0]; // Mantener el texto completo de la referencia
+            $displayText = $matches[0]; // Mantener el texto completo de la referencia para el display
     
-            // Construir la URL completa
-            $url = "https://biblicomentarios.com/capitulo-escrituras/?capitulo=" . urlencode($bookAndChapter) . $verse;
+            // Construir la URL completa, incluyendo el capítulo y el versículo
+            $url = "https://biblicomentarios.com/capitulo-escrituras/?capitulo=" . urlencode($bookAndChapter) . $verseMatch;
     
             return "<a href='$url' class='chapterLink' target='_chapter'>$displayText</a>";
         }, $content);
     }
+    
     
     private function normalize_book_name($name) {
         $name = str_replace(['Éxodo', 'Éter'], ['Exodo', 'Eter'], $name);
