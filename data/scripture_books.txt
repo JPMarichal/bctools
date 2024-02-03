@@ -1,17 +1,3 @@
-1 Nefi
-2 Nefi
-Jacob
-Enós
-Jarom
-Omni
-Mosíah
-Alma
-Helamán
-3 Nefi
-4 Nefi
-Mormón
-Éter
-Moroni
 Génesis
 Éxodo
 Levítico
@@ -78,9 +64,25 @@ Santiago
 3 Juan
 Judas
 Apocalipsis
+1 Nefi
+2 Nefi
+Jacob
+Enós
+Jarom
+Omni
+Palabras de Mormón
+Mosíah
+Alma
+Helamán
+3 Nefi
+4 Nefi
+Mormón
+Éter
+Moroni
+Doctrina y Convenios
+Declaración Oficial
 Moisés
 Abraham
 José Smith—Mateo
 José Smith—Historia
 Artículos de Fe
-Doctrina y Convenios
