@@ -1,6 +1,7 @@
 <?php
 // Incluye wp-load.php para acceder a las funciones de WordPress.
-require_once('../../../../wp-load.php');
+// require_once('../../../../wp-load.php');
+require_once(ABSPATH.'wp-load.php');
 
 // Incluye plugin.php para utilizar is_plugin_active().
 require_once(ABSPATH . 'wp-admin/includes/plugin.php');
@@ -26,18 +27,31 @@ function bc_post_update_activar() {
             $content = $post->post_content;
             $capitulos = find_scripture_references($content);
 
-            wp_update_post([
+            // Actualiza el contenido del post y muestra el título
+            $updated = wp_update_post([
                 'ID'           => $post->ID,
                 'post_content' => $content,
             ]);
+
+            if ($updated) {
+                echo "Post actualizado: {$post->post_title}\n";
+            } else {
+                echo "Error al actualizar el post: {$post->post_title}\n";
+            }
 
             $tags_deleted = 0;
             $tags = wp_get_post_tags($post->ID);
 
             foreach ($tags as $tag) {
-                if (in_array($tag->name, $capitulos)) {
-                    wp_remove_object_terms($post->ID, $tag->term_id, 'post_tag');
-                    $tags_deleted++;
+                if (isset($capitulos[$tag->name]) && in_array($tag->name, $capitulos[$tag->name])) {
+                    $result = wp_remove_object_terms($post->ID, $tag->term_id, 'post_tag');
+
+                    if ($result) {
+                        echo "Etiqueta eliminada: {$tag->name} (ID: {$tag->term_id})\n";
+                        $tags_deleted++;
+                    } else {
+                        echo "Error al eliminar etiqueta: {$tag->name} (ID: {$tag->term_id})\n";
+                    }
                 }
             }
 
@@ -65,10 +79,14 @@ function find_scripture_references($content) {
     foreach ($matches as $match) {
         $normalizedBookName = normalize_book_name($match[1]);
         $chapter = $match[2];
-        $bookAndChapter = $normalizedBookName . ' ' . $chapter;
+        $bookAndChapter = "{$normalizedBookName} {$chapter}";
 
-        if (!in_array($bookAndChapter, $foundChapters)) {
-            $foundChapters[] = $bookAndChapter;
+        if (!isset($foundChapters[$normalizedBookName])) {
+            $foundChapters[$normalizedBookName] = [];
+        }
+
+        if (!in_array($bookAndChapter, $foundChapters[$normalizedBookName])) {
+            $foundChapters[$normalizedBookName][] = $bookAndChapter;
         }
     }
 
