@@ -3,7 +3,7 @@
  * Plugin Name: BC Tools
  * Plugin URI:  https://biblicomentarios.com
  * Description: Un plugin para reemplazar referencias a las Escrituras con enlaces.
- * Version:     1.0
+ * Version:     1.0.1
  * Author:      Juan Pablo Marichal Catalan
  * Author URI:  https://biblicomentarios.com
  */
@@ -13,9 +13,10 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-
 // Incluir la clase.
 require_once plugin_dir_path( __FILE__ ) . 'includes/class-lds-replacer.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-bc-tools-taxonomy-handler.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/class-bc-tools-chapter-widget.php';
 
 // Inicializar la clase.
 function lds_tools_run() {
@@ -28,6 +29,11 @@ function lds_replacer_enqueue_styles() {
     wp_enqueue_style('lds-replacer-styles', plugins_url('css/lds-replacer-styles.css', __FILE__));
 }
 add_action('wp_enqueue_scripts', 'lds_replacer_enqueue_styles');
+
+function bc_tools_taxonomy_handler_run() {
+    new BC_Tools_Taxonomy_Handler();
+}
+add_action( 'plugins_loaded', 'bc_tools_taxonomy_handler_run' );
 
 function register_taxonomy_capitulos() {
     $labels = array(
@@ -64,3 +70,11 @@ function register_taxonomy_capitulos() {
     register_taxonomy('capitulos', array('post'), $args);
 }
 add_action('init', 'register_taxonomy_capitulos', 0);
+
+register_activation_hook(__FILE__, 'bc_tools_schedule_initial_update');
+
+function bc_tools_schedule_initial_update() {
+    if (!wp_next_scheduled('bc_tools_process_posts_in_batches')) {
+        wp_schedule_single_event(time(), 'bc_tools_process_posts_in_batches');
+    }
+}
