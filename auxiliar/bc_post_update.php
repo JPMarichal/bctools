@@ -1,67 +1,81 @@
 <?php
-// Incluye wp-load.php para acceder a las funciones de WordPress.
-// require_once('../../../../wp-load.php');
-require_once(ABSPATH.'wp-load.php');
+// Incluye los archivos necesarios de WordPress para acceder a sus funciones.
+require_once('../../../../wp-load.php');
+require_once(ABSPATH.'wp-admin/includes/plugin.php');
 
-// Incluye plugin.php para utilizar is_plugin_active().
-require_once(ABSPATH . 'wp-admin/includes/plugin.php');
-
+/**
+ * Inicia el proceso de actualización de posts y manejo de etiquetas.
+ */
 function bc_post_update_activar() {
     if (!is_plugin_active('bc_tools/bc-tools.php')) {
-        die("El plugin BC Tools debe estar instalado y activo antes de ejecutar BC Post Update.");
+        echo "El plugin BC Tools debe estar instalado y activo antes de ejecutar BC Post Update.";
+        return;
     }
 
     $posts_por_lote = 50;
+    $offset = 0;
+    $total_posts = 0;
+    $inicio = microtime(true);
 
-    $posts = get_posts([
-        'post_type'      => 'post',
-        'post_status'    => 'publish',
-        'posts_per_page' => -1,
-    ]);
+    do {
+        $args = [
+            'post_type'      => 'post',
+            'post_status'    => 'publish',
+            'posts_per_page' => $posts_por_lote,
+            'offset'         => $offset,
+        ];
 
-    $total_posts = count($posts);
-    $processed_posts = 0;
+        $posts = get_posts($args);
+        $numero_posts = count($posts);
 
-    foreach (array_chunk($posts, $posts_por_lote) as $lote) {
-        foreach ($lote as $post) {
+        foreach ($posts as $post) {
             $content = $post->post_content;
             $capitulos = find_scripture_references($content);
 
-            // Actualiza el contenido del post y muestra el título
             $updated = wp_update_post([
                 'ID'           => $post->ID,
                 'post_content' => $content,
-            ]);
+            ], true);
 
-            if ($updated) {
-                echo "Post actualizado: {$post->post_title}\n";
+            if (is_wp_error($updated)) {
+                echo "Error al actualizar el post: {$post->post_title} - " . $updated->get_error_message() . "\n";
+                continue;
             } else {
-                echo "Error al actualizar el post: {$post->post_title}\n";
+                echo "Post actualizado: {$post->post_title}\n";
             }
 
-            $tags_deleted = 0;
-            $tags = wp_get_post_tags($post->ID);
+            wp_reset_postdata();
 
+            $tags = wp_get_post_tags($post->ID, ['fields' => 'all']);
             foreach ($tags as $tag) {
-                if (isset($capitulos[$tag->name]) && in_array($tag->name, $capitulos[$tag->name])) {
-                    $result = wp_remove_object_terms($post->ID, $tag->term_id, 'post_tag');
-
-                    if ($result) {
-                        echo "Etiqueta eliminada: {$tag->name} (ID: {$tag->term_id})\n";
-                        $tags_deleted++;
-                    } else {
-                        echo "Error al eliminar etiqueta: {$tag->name} (ID: {$tag->term_id})\n";
+                $tagNameNormalized = normalize_book_name($tag->name);
+                foreach ($capitulos as $book => $chapters) {
+                    if (in_array($tagNameNormalized, $chapters)) {
+                        $result = wp_remove_object_terms($post->ID, $tag->term_id, 'post_tag');
+                        if (is_wp_error($result)) {
+                            echo "Error al eliminar etiqueta: {$tag->name} (ID: {$tag->term_id}) - " . $result->get_error_message() . "\n";
+                        } else {
+                            echo "Etiqueta eliminada: {$tag->name} (ID: {$tag->term_id})\n";
+                        }
+                        break; // Sale del bucle interno si la etiqueta se encuentra y se intenta eliminar.
                     }
                 }
             }
 
-            $processed_posts++;
+            $total_posts++;
         }
-    }
 
-    echo "Procesamiento terminado. Total de posts procesados: {$processed_posts}.\n";
+        $offset += $posts_por_lote;
+    } while ($numero_posts == $posts_por_lote);
+
+    $fin = microtime(true);
+    $tiempo_ejecucion = ($fin - $inicio)/60;
+    echo "Procesamiento terminado. Total de posts procesados: $total_posts. Tiempo de ejecución: $tiempo_ejecucion minutos.\n";
 }
 
+/**
+ * Encuentra referencias a capítulos de la Biblia en el contenido.
+ */
 function find_scripture_references($content) {
     $books_path = plugin_dir_path(__FILE__) . 'scripture_books.txt';
     $books = file($books_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -93,6 +107,9 @@ function find_scripture_references($content) {
     return $foundChapters;
 }
 
+/**
+ * Normaliza el nombre del libro o etiqueta para manejar uniformemente los acentos.
+ */
 function normalize_book_name($name) {
     $unwanted_array = [
         'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U',
@@ -102,5 +119,4 @@ function normalize_book_name($name) {
     return strtr($name, $unwanted_array);
 }
 
-// Debido a que este script se ejecuta directamente, no es necesario un gancho de activación.
 bc_post_update_activar();
